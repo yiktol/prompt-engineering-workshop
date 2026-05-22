@@ -19,22 +19,43 @@ def get_available_models():
     All models listed here support the Amazon Bedrock Converse API.
     Reference: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html
     """
+    flat = {}
+    for provider_models in get_models_by_provider().values():
+        flat.update(provider_models)
+    return flat
+
+
+def get_models_by_provider():
+    """Return models grouped by provider.
+
+    Maps provider display name -> dict of model display name -> model ID.
+    """
     return {
-        # Anthropic — use inference profile IDs (us. prefix)
-        "Claude Sonnet 4.6": "us.anthropic.claude-sonnet-4-6",
-        "Claude Sonnet 4.5": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-        "Claude Haiku 4.5": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        # Amazon — on-demand supported directly
-        "Amazon Nova Pro": "amazon.nova-pro-v1:0",
-        "Amazon Nova Lite": "amazon.nova-lite-v1:0",
-        "Amazon Nova Micro": "amazon.nova-micro-v1:0",
-        # Meta — use inference profile IDs (us. prefix)
-        "Llama 4 Scout 17B": "us.meta.llama4-scout-17b-instruct-v1:0",
-        "Llama 4 Maverick 17B": "us.meta.llama4-maverick-17b-instruct-v1:0",
-        # Mistral — on-demand supported directly
-        "Mistral Large 3": "mistral.mistral-large-3-675b-instruct",
-        # DeepSeek — use inference profile ID
-        "DeepSeek-R1": "us.deepseek.r1-v1:0",
+        "Anthropic": {
+            # Use inference profile IDs (us. prefix)
+            "Claude Sonnet 4.6": "us.anthropic.claude-sonnet-4-6",
+            "Claude Sonnet 4.5": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            "Claude Haiku 4.5": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        },
+        "Amazon": {
+            # On-demand supported directly
+            "Amazon Nova Pro": "amazon.nova-pro-v1:0",
+            "Amazon Nova Lite": "amazon.nova-lite-v1:0",
+            "Amazon Nova Micro": "amazon.nova-micro-v1:0",
+        },
+        "Meta": {
+            # Use inference profile IDs (us. prefix)
+            "Llama 4 Scout 17B": "us.meta.llama4-scout-17b-instruct-v1:0",
+            "Llama 4 Maverick 17B": "us.meta.llama4-maverick-17b-instruct-v1:0",
+        },
+        "Mistral": {
+            # On-demand supported directly
+            "Mistral Large 3": "mistral.mistral-large-3-675b-instruct",
+        },
+        "DeepSeek": {
+            # Use inference profile ID
+            "DeepSeek-R1": "us.deepseek.r1-v1:0",
+        },
     }
 
 

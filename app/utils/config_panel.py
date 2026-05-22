@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.bedrock_client import get_available_models
+from utils.bedrock_client import get_models_by_provider
 
 
 def render_config_panel(container):
@@ -8,34 +8,30 @@ def render_config_panel(container):
         # --- Model Selection Container ---
         with st.container(border=True):
             st.markdown("##### 🤖 Model")
-            models = get_available_models()
+            models_by_provider = get_models_by_provider()
+            providers = list(models_by_provider.keys())
+
+            selected_provider = st.selectbox(
+                "Provider",
+                providers,
+                index=0,
+                key="config_provider",
+            )
+
+            provider_models = models_by_provider[selected_provider]
             selected_model_name = st.selectbox(
                 "Model",
-                list(models.keys()),
+                list(provider_models.keys()),
                 index=0,
-                key="config_model",
-                label_visibility="collapsed",
+                key=f"config_model_{selected_provider}",
             )
-            st.session_state["selected_model_id"] = models[selected_model_name]
+            st.session_state["selected_model_id"] = provider_models[selected_model_name]
             st.session_state["selected_model_name"] = selected_model_name
 
-            region = st.selectbox(
-                "Region",
-                ["us-east-1", "us-west-2", "eu-west-1", "ap-northeast-1"],
-                index=0,
-                key="config_region",
-                label_visibility="collapsed",
-            )
-            st.session_state["aws_region"] = region
+            # Default region (us-east-1) — no UI selector
+            st.session_state["aws_region"] = "us-east-1"
 
-            # Clear cached client if region changes
-            if "bedrock_client" in st.session_state:
-                prev_region = st.session_state.get("_prev_region")
-                if prev_region and prev_region != region:
-                    del st.session_state["bedrock_client"]
-            st.session_state["_prev_region"] = region
-
-            st.caption(f"`{models[selected_model_name]}`")
+            st.caption(f"`{provider_models[selected_model_name]}`")
 
         # --- Inference Config Container ---
         with st.container(border=True):

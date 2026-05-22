@@ -10,6 +10,27 @@ apply_custom_styles()
 main_col, config_col = st.columns([7, 3])
 render_config_panel(config_col)
 
+# Knowledge Base config on the right side
+with config_col:
+    with st.container(border=True):
+        st.markdown("##### 🗄️ Knowledge Base")
+        kb_id = st.text_input(
+            "Knowledge Base ID:",
+            value="",
+            placeholder="e.g. ABCDEF1234",
+            key="kb_id",
+            help="Enter your Bedrock Knowledge Base ID.",
+        )
+        kb_num_results = st.number_input(
+            "Results to retrieve:",
+            min_value=1,
+            max_value=10,
+            value=3,
+            key="kb_num_results",
+        )
+        if not kb_id:
+            st.caption("Create one in [Bedrock Console](https://console.aws.amazon.com/bedrock/home#/knowledge-bases)")
+
 with main_col:
     st.title("🖼️ Multimodal & RAG Prompting")
     st.markdown("Extend prompt engineering to images and external knowledge retrieval.")
@@ -148,14 +169,138 @@ Step 3: Provide your final answer.
 Instead of relying solely on training data, the model receives retrieved context
 and generates answers based on that evidence.
 
-The prompt design in RAG is critical — it determines how well the model uses the retrieved context.
-
 **RAG Pipeline:** Query → Retrieve → Augment Prompt → Generate
 """)
 
         st.markdown("---")
-        st.markdown("#### Simulated RAG Demo")
-        st.markdown("Below we simulate retrieved documents and compare different RAG prompt strategies.")
+
+        # --- Bedrock Knowledge Base Integration ---
+        st.markdown("#### 🗄️ Amazon Bedrock Knowledge Base")
+        st.markdown("Connect to a real Knowledge Base to retrieve and generate with your own data. Configure the **Knowledge Base ID** in the right panel →")
+
+        kb_id = st.session_state.get("kb_id", "")
+        kb_num_results = st.session_state.get("kb_num_results", 3)
+
+        if kb_id:
+            kb_query = st.text_area(
+                "❓ Query the Knowledge Base:",
+                value="What are the main features of this product?",
+                height=60,
+                key="kb_query",
+            )
+
+            kb_mode = st.radio(
+                "Mode:",
+                ["Retrieve & Generate (end-to-end)", "Retrieve Only (show chunks)"],
+                key="kb_mode",
+                horizontal=True,
+            )
+
+            if st.button("🔍 Query Knowledge Base", key="run_kb", type="primary"):
+                region = st.session_state.get("aws_region", "us-east-1")
+                model_id = st.session_state.get("selected_model_id", "amazon.nova-lite-v1:0")
+
+                with st.spinner("Querying Knowledge Base..."):
+                    try:
+                        import boto3
+                        bedrock_agent = boto3.client("bedrock-agent-runtime", region_name=region)
+
+                        if kb_mode == "Retrieve Only (show chunks)":
+                            # Retrieve only
+                            response = bedrock_agent.retrieve(
+                                knowledgeBaseId=kb_id,
+                                retrievalQuery={"text": kb_query},
+                                retrievalConfiguration={
+                                    "vectorSearchConfiguration": {
+                                        "numberOfResults": kb_num_results,
+                                    }
+                                },
+                            )
+
+                            results = response.get("retrievalResults", [])
+                            if not results:
+                                st.warning("No results found.")
+                            else:
+                                st.markdown(f"**📄 Retrieved {len(results)} chunks:**")
+                                for i, chunk in enumerate(results):
+                                    content = chunk.get("content", {}).get("text", "")
+                                    score = chunk.get("score", 0)
+                                    source = chunk.get("location", {}).get("s3Location", {}).get("uri", "Unknown")
+                                    with st.expander(f"Chunk {i+1} (score: {score:.3f}) — {source}"):
+                                        st.write(content)
+
+                                # Offer to use retrieved chunks for RAG prompt
+                                st.markdown("---")
+                                st.markdown("**Use these chunks with a structured RAG prompt:**")
+                                combined_context = "\n\n".join(
+                                    [f"[Chunk {i+1}]: {r.get('content', {}).get('text', '')}" for i, r in enumerate(results)]
+                                )
+                                rag_prompt_with_kb = f"""Answer the question based ONLY on the provided context. If the answer is not in the context, say "I don't have enough information."
+
+Cite your sources using [Chunk N].
+
+Context:
+---
+{combined_context}
+---
+
+Question: {kb_query}
+
+Answer (with citations):"""
+                                if st.button("Generate Answer from Chunks", key="run_kb_generate"):
+                                    with st.spinner("Generating..."):
+                                        answer = invoke_model(rag_prompt_with_kb, temperature=0.3)
+                                    st.success(answer)
+
+                        else:
+                            # Retrieve and Generate
+                            response = bedrock_agent.retrieve_and_generate(
+                                input={"text": kb_query},
+                                retrieveAndGenerateConfiguration={
+                                    "type": "KNOWLEDGE_BASE",
+                                    "knowledgeBaseConfiguration": {
+                                        "knowledgeBaseId": kb_id,
+                                        "modelArn": f"arn:aws:bedrock:{region}::foundation-model/{model_id}",
+                                        "retrievalConfiguration": {
+                                            "vectorSearchConfiguration": {
+                                                "numberOfResults": kb_num_results,
+                                            }
+                                        },
+                                    },
+                                },
+                            )
+
+                            # Display generated response
+                            output = response.get("output", {}).get("text", "No response generated.")
+                            st.markdown("**🤖 Generated Answer:**")
+                            st.success(output)
+
+                            # Display citations
+                            citations = response.get("citations", [])
+                            if citations:
+                                st.markdown("**📚 Citations:**")
+                                for i, citation in enumerate(citations):
+                                    refs = citation.get("retrievedReferences", [])
+                                    for ref in refs:
+                                        content = ref.get("content", {}).get("text", "")[:200]
+                                        source = ref.get("location", {}).get("s3Location", {}).get("uri", "Unknown")
+                                        st.caption(f"[{i+1}] {source}")
+                                        st.text(content + "...")
+
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "ResourceNotFoundException" in error_msg:
+                            st.error("❌ Knowledge Base not found. Check the ID and region.")
+                        elif "AccessDeniedException" in error_msg:
+                            st.error("❌ Access denied. Ensure your credentials have `bedrock-agent-runtime` permissions.")
+                        else:
+                            st.error(f"❌ Error: {error_msg}")
+        else:
+            st.info("💡 Enter a Knowledge Base ID in the right panel to query your own data.")
+
+        st.markdown("---")
+        st.markdown("#### 📝 Simulated RAG Demo")
+        st.markdown("No Knowledge Base? Compare RAG prompt strategies with simulated documents below.")
 
         # Simulated retrieved documents
         retrieved_docs = st.text_area(
