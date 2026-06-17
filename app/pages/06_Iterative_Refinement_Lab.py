@@ -12,7 +12,6 @@ from utils.common import (
     render_judge_model_selector,
     get_judge_model_id,
 )
-import utils.authenticate as authenticate
 
 
 @st.cache_resource
@@ -669,13 +668,5 @@ def main():
     create_footer()
 
 
-if __name__ == "__main__":
-    try:
-        if "localhost" in st.context.headers.get("host", "localhost"):
-            main()
-        else:
-            is_authenticated = authenticate.login()
-            if is_authenticated:
-                main()
-    except Exception as e:
-        st.error(f"Application error: {str(e)}")
+
+main()

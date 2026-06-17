@@ -2,7 +2,6 @@ import streamlit as st
 import uuid
 from utils.styles import load_css, custom_header, create_footer, AWS_COLORS
 from utils.common import render_sidebar
-import utils.authenticate as authenticate
 
 st.set_page_config(
     page_title="AWS AI Practitioner - Essentials of Prompt Engineering",
@@ -22,7 +21,7 @@ def main():
         render_sidebar()
         if st.button("🗑️ Reset All Labs", key="home_clear_all"):
             # Clear all session state except session_id and auth
-            keys_to_keep = {"session_id", "authenticated", "auth_token", "username"}
+            keys_to_keep = {"session_id"}
             keys_to_clear = [k for k in list(st.session_state.keys()) if k not in keys_to_keep]
             for key in keys_to_clear:
                 del st.session_state[key]
@@ -64,13 +63,5 @@ def main():
     create_footer()
 
 
-if __name__ == "__main__":
-    try:
-        if "localhost" in st.context.headers.get("host", "localhost"):
-            main()
-        else:
-            is_authenticated = authenticate.login()
-            if is_authenticated:
-                main()
-    except Exception as e:
-        st.error(f"Application error: {str(e)}")
+
+main()

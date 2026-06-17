@@ -89,6 +89,7 @@ deploy_stack "${STACK_PREFIX}-streamlit" "03_streamlit.yaml" \
     "SourcePrefixListId=${CF_PREFIX_LIST}" \
     "VpcStackName=${STACK_PREFIX}-vpc" \
     "AppPort=${APP_PORT}" \
+    "CloudFrontALBSecretName=cloudfront/${STACK_PREFIX}-cloudfront-alb-handshake" \
     "GitRepoUrl=${GIT_REPO}" \
     "GitBranch=${GIT_BRANCH}"
 

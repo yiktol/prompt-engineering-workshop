@@ -61,7 +61,7 @@ Resources:
   OriginVerificationSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: cloudfront/alb-handshake
+      Name: !Sub "cloudfront/${AWS::StackName}-alb-handshake"
       Description: Secret header for CloudFront-to-ALB origin verification
       SecretString: !Sub
         - '{"HEADER_NAME":"${HeaderName}","HEADER_VALUE":"${HeaderValue}"}'

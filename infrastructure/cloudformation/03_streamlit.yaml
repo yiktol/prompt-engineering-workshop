@@ -71,7 +71,7 @@ Parameters:
 
   CloudFrontALBSecretName:
     Type: String
-    Default: cloudfront/alb-handshake
+    Default: cloudfront/prompt-workshop-cloudfront-alb-handshake
     Description: Secret name for CloudFront-ALB origin verification header
 
   GitRepoUrl:
@@ -228,29 +228,29 @@ Resources:
                 Value: prompt-engineering-workshop
         UserData:
           Fn::Base64: !Sub |
-            #!/bin/bash
-            set -e
+            #cloud-config
+            package_update: true
+            package_upgrade: true
 
-            # Install dependencies
-            apt-get update -y
-            apt-get install -y git software-properties-common
+            packages:
+            - git
+            - software-properties-common
 
-            # Install Python 3.12 (required for ML dependencies)
-            add-apt-repository -y ppa:deadsnakes/ppa
-            apt-get update -y
-            apt-get install -y python3.12 python3.12-venv python3.12-dev
+            write_files:
+            - content: |
+                @reboot /bin/bash /home/ubuntu/prompt-engineering-workshop/setup.sh --directory /home/ubuntu/prompt-engineering-workshop/app --port ${AppPort} --app Home.py --requirements requirements.txt
+              owner: ubuntu:ubuntu
+              path: /home/ubuntu/mycrontab
+              permissions: '0600'
 
-            # Clone the workshop repository
-            mkdir -p /home/ubuntu/prompt-engineering-workshop
-            git clone -b ${GitBranch} ${GitRepoUrl} /home/ubuntu/prompt-engineering-workshop
-            chown -R ubuntu:ubuntu /home/ubuntu/prompt-engineering-workshop
-
-            # Run the setup script
-            su - ubuntu -c "bash /home/ubuntu/prompt-engineering-workshop/setup.sh \
-              --directory /home/ubuntu/prompt-engineering-workshop/app \
-              --port ${AppPort} \
-              --app Home.py \
-              --requirements requirements.txt"
+            runcmd:
+            - add-apt-repository -y ppa:deadsnakes/ppa
+            - apt-get update -y
+            - apt-get install -y python3.12 python3.12-venv python3.12-dev
+            - git clone -b ${GitBranch} ${GitRepoUrl} /home/ubuntu/prompt-engineering-workshop
+            - chown -R ubuntu:ubuntu /home/ubuntu/prompt-engineering-workshop
+            - su - ubuntu -c "crontab /home/ubuntu/mycrontab"
+            - su - ubuntu -c "/bin/bash /home/ubuntu/prompt-engineering-workshop/setup.sh --directory /home/ubuntu/prompt-engineering-workshop/app --port ${AppPort} --app Home.py --requirements requirements.txt"
 
   ServerGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
