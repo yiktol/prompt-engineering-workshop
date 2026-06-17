@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Amazon Bedrock Guardrail for the Prompt Engineering Workshop.
+  Configures all guardrail features: content filters, denied topics,
+  word filters, sensitive information filters, and contextual grounding.
+
+Parameters:
+  GuardrailName:
+    Type: String
+    Default: prompt-engineering-workshop-guardrail
+    Description: Name of the Bedrock Guardrail
+    AllowedPattern: '^[0-9a-zA-Z-_]+$'
+    MaxLength: 50
+
+  Environment:
+    Type: String
+    Default: workshop
+    AllowedValues:
+      - workshop
+      - dev
+      - prod
+    Description: Environment tag for the guardrail
+
+Resources:
+  # -----------------------------------------------------------------------
+  # Amazon Bedrock Guardrail
+  # -----------------------------------------------------------------------
+  BedrockGuardrail:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: !Ref GuardrailName
+      Description: >
+        Guardrail for the Prompt Engineering Workshop. Provides defense-in-depth
+        with content filtering, topic blocking, word filtering, PII protection,
+        and contextual grounding checks.
+
+      BlockedInputMessaging: >
+        Your input was blocked by our content safety guardrail. Please rephrase
+        your message and avoid harmful, inappropriate, or sensitive content.
+
+      BlockedOutputsMessaging: >
+        The model response was blocked by our content safety guardrail because
+        it contained content that violates our usage policies.
+
+      # -------------------------------------------------------------------
+      # Content Policy: Filter harmful content categories
+      # -------------------------------------------------------------------
+      ContentPolicyConfig:
+        FiltersConfig:
+          - Type: HATE
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: INSULTS
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: SEXUAL
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: VIOLENCE
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: MISCONDUCT
+            InputStrength: HIGH
+            OutputStrength: HIGH
+          - Type: PROMPT_ATTACK
+            InputStrength: HIGH
+            OutputStrength: NONE
+
+      # -------------------------------------------------------------------
+      # Topic Policy: Block undesirable topics
+      # -------------------------------------------------------------------
+      TopicPolicyConfig:
+        TopicsConfig:
+          - Name: financial-advice
+            Definition: >
+              Providing specific financial investment advice, stock recommendations,
+              or personalized financial planning that could be construed as
+              professional financial advisory services.
+            Examples:
+              - "What stocks should I buy right now?"
+              - "Should I invest my savings in crypto?"
+              - "Give me a financial plan for retirement"
+            Type: DENY
+          - Name: legal-advice
+            Definition: >
+              Providing specific legal advice, interpreting laws for individual
+              situations, or offering guidance that could be construed as
+              professional legal counsel.
+            Examples:
+              - "Is this contract legally binding?"
+              - "Can I sue my employer for this?"
+              - "What are my legal rights in this situation?"
+            Type: DENY
+          - Name: medical-diagnosis
+            Definition: >
+              Diagnosing medical conditions, recommending specific treatments
+              or medications, or providing personalized medical advice that
+              should come from a healthcare professional.
+            Examples:
+              - "I have these symptoms, what disease do I have?"
+              - "Should I take this medication?"
+              - "Diagnose my condition based on these symptoms"
+            Type: DENY
+
+      # -------------------------------------------------------------------
+      # Word Policy: Block specific words and profanity
+      # -------------------------------------------------------------------
+      WordPolicyConfig:
+        WordsConfig:
+          - Text: competitor-product-name
+          - Text: internal-only
+          - Text: confidential-do-not-share
+        ManagedWordListsConfig:
+          - Type: PROFANITY
+
+      # -------------------------------------------------------------------
+      # Sensitive Information Policy: Block/mask PII and custom patterns
+      # -------------------------------------------------------------------
+      SensitiveInformationPolicyConfig:
+        PiiEntitiesConfig:
+          - Type: EMAIL
+            Action: ANONYMIZE
+          - Type: PHONE
+            Action: ANONYMIZE
+          - Type: NAME
+            Action: ANONYMIZE
+          - Type: US_SOCIAL_SECURITY_NUMBER
+            Action: BLOCK
+          - Type: CREDIT_DEBIT_CARD_NUMBER
+            Action: BLOCK
+          - Type: CREDIT_DEBIT_CARD_CVV
+            Action: BLOCK
+          - Type: CREDIT_DEBIT_CARD_EXPIRY
+            Action: BLOCK
+          - Type: US_BANK_ACCOUNT_NUMBER
+            Action: BLOCK
+          - Type: US_BANK_ROUTING_NUMBER
+            Action: BLOCK
+          - Type: US_PASSPORT_NUMBER
+            Action: BLOCK
+          - Type: US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER
+            Action: BLOCK
+          - Type: DRIVER_ID
+            Action: ANONYMIZE
+          - Type: IP_ADDRESS
+            Action: ANONYMIZE
+          - Type: URL
+            Action: ANONYMIZE
+          - Type: AWS_ACCESS_KEY
+            Action: BLOCK
+          - Type: AWS_SECRET_KEY
+            Action: BLOCK
+        RegexesConfig:
+          - Name: custom-api-key-pattern
+            Description: Detects API keys in common formats (Bearer tokens, API keys)
+            Pattern: '(?i)(api[_-]?key|bearer|token)\s*[:=]\s*[a-zA-Z0-9\-_]{20,}'
+            Action: BLOCK
+          - Name: internal-account-id
+            Description: Detects internal account ID format (ACCT-XXXXXX)
+            Pattern: 'ACCT-[A-Z0-9]{6,10}'
+            Action: ANONYMIZE
+
+      # -------------------------------------------------------------------
+      # Contextual Grounding Policy: Detect hallucinations
+      # -------------------------------------------------------------------
+      ContextualGroundingPolicyConfig:
+        FiltersConfig:
+          - Type: GROUNDING
+            Threshold: 0.7
+          - Type: RELEVANCE
+            Threshold: 0.7
+
+      # -------------------------------------------------------------------
+      # Tags
+      # -------------------------------------------------------------------
+      Tags:
+        - Key: Project
+          Value: prompt-engineering-workshop
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # -----------------------------------------------------------------------
+  # Guardrail Version (creates a deployable version)
+  # -----------------------------------------------------------------------
+  BedrockGuardrailVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Properties:
+      GuardrailIdentifier: !GetAtt BedrockGuardrail.GuardrailId
+      Description: Initial version deployed by CloudFormation
+
+Outputs:
+  GuardrailId:
+    Description: The unique identifier of the Bedrock Guardrail
+    Value: !GetAtt BedrockGuardrail.GuardrailId
+    Export:
+      Name: !Sub '${AWS::StackName}-GuardrailId'
+
+  GuardrailArn:
+    Description: The ARN of the Bedrock Guardrail
+    Value: !GetAtt BedrockGuardrail.GuardrailArn
+    Export:
+      Name: !Sub '${AWS::StackName}-GuardrailArn'
+
+  GuardrailVersion:
+    Description: The deployed version of the Guardrail
+    Value: !GetAtt BedrockGuardrailVersion.Version
+    Export:
+      Name: !Sub '${AWS::StackName}-GuardrailVersion'

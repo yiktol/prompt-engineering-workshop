@@ -1,0 +1,478 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Prompt Engineering Workshop - Streamlit application server with Auto Scaling Group
+  behind ALB with HTTPS listener on port 8084.
+
+Parameters:
+  LatestAWSLinuxAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: '/aws/service/cloud9/amis/ubuntu-22.04-x86_64'
+    Description: AMI ID for Ubuntu 22.04 LTS
+
+  Domain:
+    Type: String
+    Description: Root domain name for the application
+
+  AlbName:
+    Type: String
+    Default: lb-prompt-workshop
+    Description: Name for the Application Load Balancer
+
+  CertId:
+    Type: String
+    Description: ACM Certificate ID for HTTPS listener
+
+  TargetGroupName:
+    Type: String
+    Default: prompt-ws
+    Description: Base name for target groups
+
+  InstanceType:
+    Type: String
+    Description: EC2 instance type
+    Default: t3.medium
+    AllowedValues:
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - t3a.medium
+      - t3a.large
+
+  VpcId:
+    Type: String
+    Default: ""
+    Description: VPC ID (leave empty to import from VPC stack)
+
+  PrivateSubnetId:
+    Type: String
+    Default: ""
+    Description: Private subnet ID (leave empty to import from VPC stack)
+
+  PublicSubnetId:
+    Type: String
+    Default: ""
+    Description: First public subnet ID (leave empty to import from VPC stack)
+
+  PublicSubnetTwoId:
+    Type: String
+    Default: ""
+    Description: Second public subnet ID (leave empty to import from VPC stack)
+
+  VpcStackName:
+    Type: String
+    Default: prompt-workshop-vpc
+    Description: Name of the VPC CloudFormation stack (used to import exports)
+
+  SourcePrefixListId:
+    Type: String
+    Description: Source prefix list ID for network access control (CloudFront)
+
+  CloudFrontALBSecretName:
+    Type: String
+    Default: cloudfront/alb-handshake
+    Description: Secret name for CloudFront-ALB origin verification header
+
+  GitRepoUrl:
+    Type: String
+    Default: https://github.com/yiktol/prompt-engineering-workshop.git
+    Description: Git repository URL for the application code
+
+  GitBranch:
+    Type: String
+    Default: main
+    Description: Git branch to deploy
+
+  AppPort:
+    Type: Number
+    Default: 8084
+    Description: Port for the Streamlit application
+
+  GuardrailId:
+    Type: String
+    Default: ""
+    Description: Amazon Bedrock Guardrail ID (optional)
+
+Conditions:
+  UseVpcParam: !Not [!Equals [!Ref VpcId, ""]]
+  UsePrivateSubnetParam: !Not [!Equals [!Ref PrivateSubnetId, ""]]
+  UsePublicSubnetParam: !Not [!Equals [!Ref PublicSubnetId, ""]]
+  UsePublicSubnetTwoParam: !Not [!Equals [!Ref PublicSubnetTwoId, ""]]
+
+Resources:
+  # ================================
+  # IAM Resources
+  # ================================
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: PromptWorkshopPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: BedrockAccess
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:Converse
+                  - bedrock:ConverseStream
+                  - bedrock:ApplyGuardrail
+                  - bedrock:GetGuardrail
+                  - bedrock:ListGuardrails
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                  - bedrock:ListInferenceProfiles
+                  - bedrock:GetInferenceProfile
+                Resource: "*"
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: "*"
+              - Sid: GetSecret
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
+              - Sid: S3ReadAccess
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource: "*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref InstanceRole
+
+  # ================================
+  # Security Groups
+  # ================================
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB security group - allows CloudFront HTTPS access
+      VpcId: !If
+        - UseVpcParam
+        - !Ref VpcId
+        - !ImportValue
+          Fn::Sub: "${VpcStackName}-VpcId"
+      SecurityGroupIngress:
+        - SourcePrefixListId: !Ref SourcePrefixListId
+          IpProtocol: tcp
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          Description: Allow CloudFront access to Streamlit port
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 security group - allows ALB access to application port
+      VpcId: !If
+        - UseVpcParam
+        - !Ref VpcId
+        - !ImportValue
+          Fn::Sub: "${VpcStackName}-VpcId"
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+          IpProtocol: tcp
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          Description: Allow ALB access to Streamlit port
+
+  # ================================
+  # Launch Template & Auto Scaling
+  # ================================
+  StreamlitLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: PromptWorkshopLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        ImageId: !Ref LatestAWSLinuxAmiId
+        InstanceType: !Ref InstanceType
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeType: gp3
+              DeleteOnTermination: true
+              VolumeSize: 30
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: PromptWorkshop-StreamlitServer
+              - Key: Project
+                Value: prompt-engineering-workshop
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -e
+
+            # Install dependencies
+            apt-get update -y
+            apt-get install -y git software-properties-common
+
+            # Install Python 3.12 (required for ML dependencies)
+            add-apt-repository -y ppa:deadsnakes/ppa
+            apt-get update -y
+            apt-get install -y python3.12 python3.12-venv python3.12-dev
+
+            # Clone the workshop repository
+            mkdir -p /home/ubuntu/prompt-engineering-workshop
+            git clone -b ${GitBranch} ${GitRepoUrl} /home/ubuntu/prompt-engineering-workshop
+            chown -R ubuntu:ubuntu /home/ubuntu/prompt-engineering-workshop
+
+            # Run the setup script
+            su - ubuntu -c "bash /home/ubuntu/prompt-engineering-workshop/setup.sh \
+              --directory /home/ubuntu/prompt-engineering-workshop/app \
+              --port ${AppPort} \
+              --app Home.py \
+              --requirements requirements.txt"
+
+  ServerGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: PromptWorkshopServerGroup
+      VPCZoneIdentifier:
+        - !If
+          - UsePrivateSubnetParam
+          - !Ref PrivateSubnetId
+          - !ImportValue
+            Fn::Sub: "${VpcStackName}-PrivateSubnetOne"
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      MixedInstancesPolicy:
+        LaunchTemplate:
+          LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref StreamlitLaunchTemplate
+            Version: !GetAtt StreamlitLaunchTemplate.LatestVersionNumber
+          Overrides:
+            - InstanceType: t3.medium
+            - InstanceType: t3a.medium
+            - InstanceType: t3.large
+            - InstanceType: t3a.large
+        InstancesDistribution:
+          OnDemandBaseCapacity: 1
+          OnDemandPercentageAboveBaseCapacity: 0
+          SpotAllocationStrategy: capacity-optimized-prioritized
+      Tags:
+        - Key: Name
+          Value: PromptWorkshop-StreamlitServer
+          PropagateAtLaunch: true
+
+  # Auto Scaling Policies
+  ScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ServerGroup
+      Cooldown: 60
+      ScalingAdjustment: 1
+
+  ScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref ServerGroup
+      Cooldown: 60
+      ScalingAdjustment: -1
+
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${TargetGroupName}-scale-out"
+      AlarmDescription: Scale out if CPU >= 60% for 2 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 60
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ServerGroup
+      ComparisonOperator: GreaterThanThreshold
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${TargetGroupName}-scale-in"
+      AlarmDescription: Scale in if CPU <= 30% for 5 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 30
+      AlarmActions:
+        - !Ref ScaleInPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ServerGroup
+      ComparisonOperator: LessThanThreshold
+
+  # ================================
+  # Load Balancer
+  # ================================
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref AlbName
+      Scheme: internet-facing
+      IpAddressType: dualstack
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "60"
+      Subnets:
+        - !If
+          - UsePublicSubnetParam
+          - !Ref PublicSubnetId
+          - !ImportValue
+            Fn::Sub: "${VpcStackName}-PublicSubnetOne"
+        - !If
+          - UsePublicSubnetTwoParam
+          - !Ref PublicSubnetTwoId
+          - !ImportValue
+            Fn::Sub: "${VpcStackName}-PublicSubnetTwo"
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+
+  LoadBalancerDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub ${Domain}.
+      Name: !Sub ${AlbName}.${Domain}
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer.DNSName
+        EvaluateTargetHealth: true
+
+  # ================================
+  # Target Group
+  # ================================
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${TargetGroupName}-tg-${AppPort}"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /_stcore/health
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      Port: !Ref AppPort
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !If
+        - UseVpcParam
+        - !Ref VpcId
+        - !ImportValue
+          Fn::Sub: "${VpcStackName}-VpcId"
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: "true"
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: "3600"
+
+  # ================================
+  # HTTPS Listener
+  # ================================
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/html
+            MessageBody: Not Found
+            StatusCode: 404
+      LoadBalancerArn: !Ref LoadBalancer
+      Certificates:
+        - CertificateArn: !Sub arn:aws:acm:${AWS::Region}:${AWS::AccountId}:certificate/${CertId}
+      Port: !Ref AppPort
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+
+  # ================================
+  # Listener Rule (CloudFront header verification)
+  # ================================
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Conditions:
+        - Field: http-header
+          HttpHeaderConfig:
+            HttpHeaderName: !Join ['', ['{{resolve:secretsmanager:', !Ref CloudFrontALBSecretName, ':SecretString:HEADER_NAME}}']]
+            Values:
+              - !Join ['', ['{{resolve:secretsmanager:', !Ref CloudFrontALBSecretName, ':SecretString:HEADER_VALUE}}']]
+      ListenerArn: !Ref Listener
+      Priority: 1
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerDNS"
+
+  LoadBalancerHostedZoneId:
+    Description: Hosted Zone ID of the Application Load Balancer
+    Value: !GetAtt LoadBalancer.CanonicalHostedZoneID
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerHostedZoneId"
+
+  CustomDomainURL:
+    Description: Custom domain URL for the application
+    Value: !Sub "https://${AlbName}.${Domain}:${AppPort}"
+
+  AutoScalingGroupName:
+    Description: Name of the Auto Scaling Group
+    Value: !Ref ServerGroup
+
+  InstanceRoleArn:
+    Description: ARN of the EC2 instance role
+    Value: !GetAtt InstanceRole.Arn
+
+  InstanceSecurityGroupId:
+    Description: Security Group ID for EC2 instances
+    Value: !Ref InstanceSecurityGroup
+
+  LoadBalancerSecurityGroupId:
+    Description: Security Group ID for the Load Balancer
+    Value: !Ref LoadBalancerSecurityGroup
+
+  WorkshopURL:
+    Description: Prompt Engineering Workshop URL
+    Value: !Sub "https://${AlbName}.${Domain}:${AppPort}"

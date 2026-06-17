@@ -1,0 +1,350 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Comprehensive Network Infrastructure with VPC, and Multi-AZ Subnets
+
+Parameters:
+  VpcCidrBlock:
+    Type: String
+    Description: CIDR block for the VPC
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+
+
+Resources:
+  #====================================================================
+  # VPC CONFIGURATION
+  #====================================================================
+  Vpc:
+    Type: AWS::EC2::VPC
+    Description: Main VPC with IPv4 and IPv6 support
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: "dea-VPC"
+
+  VpcCidrBlockIpv6:
+    Type: AWS::EC2::VPCCidrBlock
+    Description: Enables IPv6 capability in the VPC
+    Properties:
+      VpcId: !Ref Vpc
+      AmazonProvidedIpv6CidrBlock: true
+
+  #====================================================================
+  # GATEWAY CONFIGURATIONS
+  #====================================================================
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Description: Internet Gateway for public subnets to access internet
+    Properties:
+      Tags:
+        - Key: Name
+          Value: "Network-Infrastructure-IGW"
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Description: Attaches Internet Gateway to VPC
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   Description: NAT Gateway to allow private subnets to access internet
+   Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId: !Ref PublicSubnetOne
+      Tags:
+        - Key: Name
+          Value: "Network-Infrastructure-NATGW"
+
+  ElasticIP:
+   DependsOn: InternetGatewayAttachment
+   Type: AWS::EC2::EIP
+   Description: Elastic IP for NAT Gateway
+   Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: "Network-Infrastructure-NAT-EIP"
+
+  EgressOnlyInternetGateway:
+    Type: AWS::EC2::EgressOnlyInternetGateway
+    Description: IPv6 egress-only gateway for private subnets
+    Properties: 
+      VpcId: !Ref Vpc
+
+  #====================================================================
+  # PUBLIC SUBNETS
+  #====================================================================
+  PublicSubnetOne:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Public subnet in first AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Select [1, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: true
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [1, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Public-Subnet-AZ1"
+
+  PublicSubnetTwo:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Public subnet in second AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Select [2, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: true
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [2, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Public-Subnet-AZ2"
+
+  PublicSubnetThree:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Public subnet in third AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Select [3, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: true
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [3, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Public-Subnet-AZ3"
+
+  #====================================================================
+  # PRIVATE SUBNETS
+  #====================================================================
+  PrivateSubnetOne:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Private subnet in first AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Select [11, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: false
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [11, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Private-Subnet-AZ1"
+
+  PrivateSubnetTwo:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Private subnet in second AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Select [12, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: false
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [12, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Private-Subnet-AZ2"
+
+  PrivateSubnetThree:
+    DependsOn: VpcCidrBlockIpv6
+    Type: AWS::EC2::Subnet
+    Description: Private subnet in third AZ with IPv4/IPv6 support
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Select [13, !Cidr [!Ref VpcCidrBlock, 20, 8]]
+      MapPublicIpOnLaunch: false
+      AssignIpv6AddressOnCreation: true
+      Ipv6CidrBlock: !Select [13, !Cidr [!Select [0, !GetAtt Vpc.Ipv6CidrBlocks], 15, 64]]
+      PrivateDnsNameOptionsOnLaunch: {"HostnameType": "resource-name","EnableResourceNameDnsARecord": true,"EnableResourceNameDnsAAAARecord": true}
+      Tags:
+        - Key: Name
+          Value: "Private-Subnet-AZ3"
+
+  #====================================================================
+  # ROUTE TABLES AND ROUTES
+  #====================================================================
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Description: Route table for public subnets
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: "Public-Route-Table"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Description: Default route for public subnets via Internet Gateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  IPv6PublicRoute:
+    Type: AWS::EC2::Route
+    Description: IPv6 default route for public subnets
+    Properties:
+      DestinationIpv6CidrBlock: ::/0
+      RouteTableId: !Ref PublicRouteTable
+      GatewayId: !Ref InternetGateway
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Description: Route table for private subnets
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: "Private-Route-Table"
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Description: Default route for private subnets via NAT Gateway
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  IPv6PrivateRoute:
+    Type: AWS::EC2::Route
+    Description: IPv6 default route for private subnets via Egress-Only Internet Gateway
+    Properties:
+      DestinationIpv6CidrBlock: ::/0
+      RouteTableId: !Ref PrivateRouteTable
+      EgressOnlyInternetGatewayId: !Ref EgressOnlyInternetGateway
+
+  #====================================================================
+  # ROUTE TABLE ASSOCIATIONS
+  #====================================================================
+  PublicSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates public subnet one with public route table
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetOne
+
+  PublicSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates public subnet two with public route table
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetTwo
+
+  PublicSubnetThreeRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates public subnet three with public route table
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetThree
+
+  PrivateSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates private subnet one with private route table
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetOne
+
+  PrivateSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates private subnet two with private route table
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetTwo
+
+  PrivateSubnetThreeRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Description: Associates private subnet three with private route table
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetThree
+
+
+#====================================================================
+# OUTPUTS
+#====================================================================
+Outputs:
+  VpcId:
+    Description: ID of the created VPC
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcId"
+
+  VpcCidrBlock:
+    Description: IPv4 CIDR block of the VPC
+    Value: !Ref VpcCidrBlock
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcCidrBlock"
+
+  Ipv6CidrBlocks:
+    Description: IPv6 CIDR block of the VPC
+    Value: !Select [0, !GetAtt Vpc.Ipv6CidrBlocks]
+
+  InternetGatewayId:
+    Description: ID of the Internet Gateway
+    Value: !Ref InternetGateway
+
+  PublicRouteTableId:
+    Description: ID of the public route table
+    Value: !Ref PublicRouteTable
+
+  PrivateRouteTableId:
+    Description: ID of the private route table
+    Value: !Ref PrivateRouteTable
+
+  # Public Subnet Outputs
+  PublicSubnetOne:
+    Description: ID of public subnet in first AZ
+    Value: !Ref PublicSubnetOne
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetOne"
+
+  PublicSubnetTwo:
+    Description: ID of public subnet in second AZ
+    Value: !Ref PublicSubnetTwo
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetTwo"
+
+  PublicSubnetThree:
+    Description: ID of public subnet in third AZ
+    Value: !Ref PublicSubnetThree
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetThree"
+
+  # Private Subnet Outputs
+  PrivateSubnetOne:
+    Description: ID of private subnet in first AZ
+    Value: !Ref PrivateSubnetOne
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetOne"
+
+  PrivateSubnetTwo:
+    Description: ID of private subnet in second AZ
+    Value: !Ref PrivateSubnetTwo
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetTwo"
+
+  PrivateSubnetThree:
+    Description: ID of private subnet in third AZ
+    Value: !Ref PrivateSubnetThree
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetThree"

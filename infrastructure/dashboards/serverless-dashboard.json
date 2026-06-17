@@ -1,0 +1,530 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "cashier", { "region": "ap-southeast-1", "stat": "Sum" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "title": "Cashier - Invocations",
+                "view": "singleValue",
+                "stacked": false,
+                "liveData": true,
+                "sparkline": true,
+                "singleValueFullPrecision": false
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "barista", { "region": "ap-southeast-1", "stat": "Sum" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "title": "Barista - Invocations",
+                "view": "singleValue",
+                "stacked": false,
+                "liveData": true,
+                "sparkline": true,
+                "singleValueFullPrecision": false
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "waiter", { "region": "ap-southeast-1", "stat": "Sum" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "title": "Waiter - Invocations",
+                "view": "singleValue",
+                "stacked": false,
+                "singleValueFullPrecision": false,
+                "liveData": true,
+                "sparkline": true
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 0,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "ddbwriter", { "region": "ap-southeast-1", "stat": "Sum" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "title": "DDBWriter - Invocations",
+                "view": "singleValue",
+                "stacked": true,
+                "liveData": true,
+                "sparkline": true,
+                "singleValueFullPrecision": false
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "cashier", { "label": "Min", "stat": "Minimum", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Avg", "stat": "Average", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Max", "stat": "Maximum", "region": "ap-southeast-1" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Cashier - Duration (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "barista", { "label": "Min", "stat": "Minimum", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Avg", "stat": "Average", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Max", "stat": "Maximum", "region": "ap-southeast-1" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Barista - Duration (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "waiter", { "label": "Min", "stat": "Minimum", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Avg", "stat": "Average", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Max", "stat": "Maximum", "region": "ap-southeast-1" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Waiter - Duration (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 6,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Duration", "FunctionName", "ddbwriter", { "label": "Min", "stat": "Minimum", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Avg", "stat": "Average", "region": "ap-southeast-1" } ],
+                    [ "...", { "label": "Max", "stat": "Maximum", "region": "ap-southeast-1" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "DDBWriter - Duration (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Errors", "FunctionName", "cashier", { "stat": "Sum", "color": "#d62728" } ],
+                    [ ".", "Throttles", ".", ".", { "stat": "Sum", "color": "#ff7f0e" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Cashier - Errors & Throttles",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 12,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Errors", "FunctionName", "barista", { "stat": "Sum", "color": "#d62728" } ],
+                    [ ".", "Throttles", ".", ".", { "stat": "Sum", "color": "#ff7f0e" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Barista - Errors & Throttles",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 12,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "ConcurrentExecutions", "FunctionName", "cashier", { "stat": "Maximum" } ],
+                    [ "...", "barista", { "stat": "Maximum" } ],
+                    [ "...", "waiter", { "stat": "Maximum" } ],
+                    [ "...", "ddbwriter", { "stat": "Maximum" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "Lambda - Concurrent Executions",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 12,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/Lambda", "Invocations", "FunctionName", "orders", { "stat": "Sum", "label": "Orders" } ],
+                    [ "...", "sales", { "stat": "Sum", "label": "Sales" } ],
+                    [ "...", "status", { "stat": "Sum", "label": "Status" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "API Functions - Invocations",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "CoffeeshopTable", { "stat": "Sum", "id": "m1", "visible": false, "region": "ap-southeast-1" } ],
+                    [ { "expression": "m1/PERIOD(m1)", "label": "Read Units/sec", "id": "e1", "color": "#2ca02c", "region": "ap-southeast-1" } ]
+                ],
+                "title": "DynamoDB - Read Capacity",
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "min": 0,
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 18,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "CoffeeshopTable", { "stat": "Sum", "id": "m1", "visible": false, "region": "ap-southeast-1" } ],
+                    [ { "expression": "m1/PERIOD(m1)", "label": "Write Units/sec", "id": "e1", "color": "#1f77b4", "region": "ap-southeast-1" } ]
+                ],
+                "title": "DynamoDB - Write Capacity",
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "min": 0,
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 18,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/DynamoDB", "UserErrors", "TableName", "CoffeeshopTable", { "stat": "Sum", "color": "#d62728" } ],
+                    [ ".", "SystemErrors", ".", ".", { "stat": "Sum", "color": "#ff7f0e" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "DynamoDB - Errors",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 18,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/DynamoDB", "SuccessfulRequestLatency", "TableName", "CoffeeshopTable", "Operation", "GetItem", { "stat": "Average" } ],
+                    [ "...", "PutItem", { "stat": "Average" } ],
+                    [ "...", "Query", { "stat": "Average" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "DynamoDB - Latency (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 24,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "OrderProcessingQueue", { "stat": "Average", "region": "ap-southeast-1", "label": "Visible" } ],
+                    [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "stat": "Average", "region": "ap-southeast-1", "label": "In Flight" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "title": "Processing Queue - Messages",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 6,
+            "y": 24,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "OrderDeliveryQueue", { "stat": "Average", "region": "ap-southeast-1", "label": "Visible" } ],
+                    [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "stat": "Average", "region": "ap-southeast-1", "label": "In Flight" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "title": "Delivery Queue - Messages",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 24,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "OrderProcessingDLQ", { "stat": "Average", "region": "ap-southeast-1", "color": "#d62728" } ]
+                ],
+                "view": "singleValue",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "title": "DLQ - Messages",
+                "period": 300,
+                "liveData": true,
+                "sparkline": true
+            }
+        },
+        {
+            "type": "metric",
+            "x": 18,
+            "y": 24,
+            "width": 6,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "OrderProcessingQueue", { "stat": "Sum", "label": "Processing" } ],
+                    [ "...", "OrderDeliveryQueue", { "stat": "Sum", "label": "Delivery" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "SQS - Messages Sent",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 30,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/SNS", "NumberOfMessagesPublished", "TopicName", "BestCoffeeEver", { "region": "ap-southeast-1", "stat": "Sum" } ],
+                    [ ".", "NumberOfNotificationsDelivered", ".", ".", { "region": "ap-southeast-1", "stat": "Sum" } ],
+                    [ ".", "NumberOfNotificationsFailed", ".", ".", { "region": "ap-southeast-1", "stat": "Sum", "color": "#d62728" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "ap-southeast-1",
+                "period": 300,
+                "title": "SNS - Message Stats",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 8,
+            "y": 30,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApiGateway", "Count", "ApiName", "coffeeshopapi", "Stage", "prod", { "region": "ap-southeast-1", "stat": "Sum" } ],
+                    [ ".", "4XXError", ".", ".", ".", ".", { "region": "ap-southeast-1", "stat": "Sum", "color": "#ff7f0e" } ],
+                    [ ".", "5XXError", ".", ".", ".", ".", { "region": "ap-southeast-1", "stat": "Sum", "color": "#d62728" } ]
+                ],
+                "period": 300,
+                "region": "ap-southeast-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "API Gateway - Requests & Errors",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 16,
+            "y": 30,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApiGateway", "Latency", "ApiName", "coffeeshopapi", "Stage", "prod", { "stat": "Average", "label": "Latency Avg" } ],
+                    [ "...", { "stat": "p99", "label": "Latency p99" } ],
+                    [ ".", "IntegrationLatency", ".", ".", ".", ".", { "stat": "Average", "label": "Integration Avg" } ]
+                ],
+                "region": "ap-southeast-1",
+                "period": 300,
+                "view": "timeSeries",
+                "stacked": false,
+                "title": "API Gateway - Latency (ms)",
+                "yAxis": {
+                    "left": {
+                        "min": 0
+                    }
+                }
+            }
+        }
+    ]
+}
