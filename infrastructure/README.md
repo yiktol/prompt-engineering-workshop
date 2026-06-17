@@ -28,7 +28,7 @@ Users → CloudFront → ALB (HTTPS:8084) → EC2 Auto Scaling Group
 | 1 | `01_vpc.yaml` | VPC, 3 public/private subnets, NAT Gateway, routes |
 | 2 | `02_bedrock_guardrail.yaml` | Bedrock Guardrail with all policy types |
 | 3 | `03_streamlit.yaml` | EC2 ASG, ALB, IAM role, security groups |
-| 4 | `04_cloudfront.yaml` | CloudFront distribution, origin secret, DNS records |
+| 4 | `04_cloudfront.yaml` | CloudFront distribution, origin secret, DNS records, WAF (optional) |
 
 ## Quick Deploy
 
@@ -37,6 +37,7 @@ Users → CloudFront → ALB (HTTPS:8084) → EC2 Auto Scaling Group
 export DOMAIN="yourdomain.com"
 export SUBDOMAIN="workshop"
 export CERT_ID="your-acm-certificate-id"
+export WAF_WEB_ACL_ARN="arn:aws:wafv2:us-east-1:ACCOUNT:global/webacl/NAME/ID"  # optional
 
 # Deploy all stacks
 ./infrastructure/scripts/deploy.sh
@@ -64,6 +65,7 @@ The deploy script uses environment variables for configuration. Override any def
 | `CF_CERT_ARN` | — | Full ACM ARN for CloudFront (us-east-1) |
 | `CF_PREFIX_LIST` | `pl-3b927c52` | CloudFront managed prefix list (us-east-1) |
 | `APP_PORT` | `8084` | Streamlit application port |
+| `WAF_WEB_ACL_ARN` | — | WAF Web ACL ARN to attach to CloudFront (optional) |
 | `GIT_REPO` | GitHub URL | Repository to clone on EC2 |
 | `GIT_BRANCH` | `main` | Branch to deploy |
 
@@ -106,6 +108,7 @@ aws cloudformation deploy \
     Subdomain=workshop \
     CertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/CERT-ID \
     StreamlitStackName=prompt-workshop-streamlit \
+    WebACLArn=arn:aws:wafv2:us-east-1:ACCOUNT:global/webacl/NAME/ID \
   --region us-east-1
 ```
 

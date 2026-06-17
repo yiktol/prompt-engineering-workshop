@@ -42,7 +42,7 @@ Parameters:
   WebACLArn:
     Type: String
     Default: ""
-    Description: ARN of a WAF Web ACL to associate with CloudFront (optional)
+    Description: ARN of a WAF Web ACL to associate with CloudFront (optional, e.g. arn:aws:wafv2:us-east-1:ACCOUNT:global/webacl/NAME/ID)
 
   StreamlitStackName:
     Type: String

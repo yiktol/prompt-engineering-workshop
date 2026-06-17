@@ -14,6 +14,8 @@ from utils.common import (
 )
 
 
+st.set_page_config(page_title="Prompt Injection Red Team", page_icon="🔴", layout="wide")
+
 @st.cache_resource
 def get_bedrock_client():
     return boto3.client("bedrock-runtime", region_name="us-east-1")

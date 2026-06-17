@@ -4,6 +4,10 @@ base = "light"
 [client]
 toolbarMode = "minimal"
 
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
 [server]
 enableCORS = false
 enableXsrfProtection = true

@@ -19,6 +19,7 @@ CF_PREFIX_LIST="${CF_PREFIX_LIST:-pl-3b927c52}"
 APP_PORT="${APP_PORT:-8084}"
 GIT_REPO="${GIT_REPO:-https://github.com/yiktol/prompt-engineering-workshop.git}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
+WAF_WEB_ACL_ARN="${WAF_WEB_ACL_ARN:-}"
 
 TEMPLATE_DIR="$(cd "$(dirname "$0")/../cloudformation" && pwd)"
 
@@ -101,7 +102,8 @@ deploy_stack "${STACK_PREFIX}-cloudfront" "04_cloudfront.yaml" \
     "Subdomain=${SUBDOMAIN}" \
     "CertificateArn=${CF_CERT_ARN}" \
     "AppPort=${APP_PORT}" \
-    "StreamlitStackName=${STACK_PREFIX}-streamlit"
+    "StreamlitStackName=${STACK_PREFIX}-streamlit" \
+    "WebACLArn=${WAF_WEB_ACL_ARN}"
 
 # ----------------------------------------
 # Summary

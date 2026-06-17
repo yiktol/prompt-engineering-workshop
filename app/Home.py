@@ -4,7 +4,7 @@ from utils.styles import load_css, custom_header, create_footer, AWS_COLORS
 from utils.common import render_sidebar
 
 st.set_page_config(
-    page_title="AWS AI Practitioner - Essentials of Prompt Engineering",
+    page_title="Essentials of Prompt Engineering",
     page_icon="✍️",
     layout="wide",
     initial_sidebar_state="expanded"

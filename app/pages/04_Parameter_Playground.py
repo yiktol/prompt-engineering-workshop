@@ -7,6 +7,8 @@ from utils.styles import load_css, sub_header, create_footer, AWS_COLORS
 from utils.common import render_sidebar, render_generator_model_selector, get_generator_model_id
 
 
+st.set_page_config(page_title="Parameter Playground", page_icon="🎛️", layout="wide")
+
 @st.cache_resource
 def get_bedrock_client():
     return boto3.client("bedrock-runtime", region_name="us-east-1")
