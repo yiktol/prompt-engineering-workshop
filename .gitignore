@@ -223,3 +223,6 @@ __marimo__/
 # Project-specific
 app/log/
 app/pid
+
+# AWS icons
+aws-icons/

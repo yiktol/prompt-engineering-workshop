@@ -15,6 +15,66 @@ def get_bedrock_client():
 
 
 # ---------------------------------------------------------------------------
+# Model capability mapping — which models support topP and stopSequences
+# via the Bedrock Converse API inferenceConfig.
+# ---------------------------------------------------------------------------
+# topP: Supported by most models via the Converse API base inference params.
+# stopSequences: Supported by Amazon Nova, Anthropic Claude, and Mistral.
+#   Meta Llama does not natively support stop sequences.
+#   Google Gemma and NVIDIA Nemotron have limited stop sequence support.
+#   OpenAI GPT OSS models support stop sequences via the Converse API.
+
+MODELS_SUPPORTING_TOP_P = {
+    "Amazon Nova Micro",
+    "Amazon Nova 2 Lite",
+    "Amazon Nova Pro",
+    "Claude Sonnet 4",
+    "Claude Haiku 4.5",
+    "Claude Sonnet 4.5",
+    "Llama 4 Scout 17B",
+    "Mistral Ministral 3B",
+    "OpenAI GPT OSS 20B",
+}
+
+MODELS_SUPPORTING_STOP_SEQUENCES = {
+    "Amazon Nova Micro",
+    "Amazon Nova 2 Lite",
+    "Amazon Nova Pro",
+    "Claude Sonnet 4",
+    "Claude Haiku 4.5",
+    "Claude Sonnet 4.5",
+    "Mistral Ministral 3B",
+    "OpenAI GPT OSS 20B",
+}
+
+MODELS_SUPPORTING_TOP_K = {
+    "Amazon Nova Micro",
+    "Amazon Nova 2 Lite",
+    "Amazon Nova Pro",
+    "Claude Sonnet 4",
+    "Claude Haiku 4.5",
+    "Claude Sonnet 4.5",
+}
+
+
+def _get_selected_model_name() -> str:
+    """Return the currently selected generator model display name."""
+    return st.session_state.get("generator_model_selection", "Amazon Nova Micro")
+
+
+def _model_supports_top_p() -> bool:
+    return _get_selected_model_name() in MODELS_SUPPORTING_TOP_P
+
+
+def _model_supports_stop_sequences() -> bool:
+    return _get_selected_model_name() in MODELS_SUPPORTING_STOP_SEQUENCES
+
+
+def _model_supports_top_k() -> bool:
+    return _get_selected_model_name() in MODELS_SUPPORTING_TOP_K
+
+
+# ---------------------------------------------------------------------------
 # Preset prompts designed to highlight parameter effects
 # ---------------------------------------------------------------------------
 PRESET_PROMPTS = {
@@ -69,6 +129,20 @@ PARAMETER_TIPS = {
         "use_low": "Short answers, one-liners, cost control",
         "use_high": "Long explanations, detailed code, essays",
     },
+    "Stop Sequences": {
+        "what": "Character sequences that cause the model to stop generating",
+        "how": "When the model produces any of these sequences, generation halts and the sequence is excluded from output.",
+        "range": "Up to 4 sequences per request (model-dependent)",
+        "use_low": "Single stop (e.g., '\\n') for one-line answers",
+        "use_high": "Multiple stops for structured output (e.g., stop at section headers)",
+    },
+    "Top K": {
+        "what": "Limits token selection to the K most probable tokens before sampling",
+        "how": "Only the top K tokens by probability are considered; all others are discarded before temperature/topP are applied.",
+        "range": "1 (only top token) → 128+ (broad selection). 0 or unset = disabled.",
+        "use_low": "Deterministic, focused outputs — removes long-tail surprises",
+        "use_high": "More diverse vocabulary while still bounding extreme randomness",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -98,21 +172,36 @@ CHALLENGES = {
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
-def call_bedrock(prompt, temperature=0.7, top_p=0.9, max_tokens=200):
+def call_bedrock(prompt, temperature=0.7, top_p=None, max_tokens=200, stop_sequences=None, top_k=None):
     client = get_bedrock_client()
     messages = [{"role": "user", "content": [{"text": prompt}]}]
     inference_config = {
         "temperature": temperature,
-        "topP": top_p,
         "maxTokens": max_tokens,
     }
+    if top_p is not None:
+        inference_config["topP"] = top_p
+    if stop_sequences:
+        inference_config["stopSequences"] = stop_sequences
+
+    kwargs = {
+        "modelId": get_generator_model_id(),
+        "messages": messages,
+        "inferenceConfig": inference_config,
+    }
+
+    # topK is not part of the base inferenceConfig — it must be passed
+    # via additionalModelRequestFields (supported by Nova and Claude).
+    if top_k is not None:
+        kwargs["additionalModelRequestFields"] = {
+            "inferenceConfig": {
+                "topK": top_k
+            }
+        }
+
     try:
         start = time.time()
-        response = client.converse(
-            modelId=get_generator_model_id(),
-            messages=messages,
-            inferenceConfig=inference_config,
-        )
+        response = client.converse(**kwargs)
         latency = time.time() - start
         output_text = response["output"]["message"]["content"][0]["text"]
         usage = response.get("usage", {})
@@ -200,9 +289,20 @@ def main():
 
     # --- Parameter tips ---
     with st.expander("💡 Parameter Reference Guide", expanded=False):
-        tips_cols = st.columns(3)
-        for i, (param, info) in enumerate(PARAMETER_TIPS.items()):
-            with tips_cols[i]:
+        param_items = list(PARAMETER_TIPS.items())
+        # Display in two rows for readability
+        row1_cols = st.columns(3)
+        for i, (param, info) in enumerate(param_items[:3]):
+            with row1_cols[i]:
+                st.markdown(f"**{param}**")
+                st.markdown(f"*What:* {info['what']}")
+                st.markdown(f"*How:* {info['how']}")
+                st.markdown(f"*Range:* {info['range']}")
+                st.markdown(f"✅ Use low: {info['use_low']}")
+                st.markdown(f"🎨 Use high: {info['use_high']}")
+        row2_cols = st.columns(3)
+        for i, (param, info) in enumerate(param_items[3:]):
+            with row2_cols[i]:
                 st.markdown(f"**{param}**")
                 st.markdown(f"*What:* {info['what']}")
                 st.markdown(f"*How:* {info['how']}")
@@ -235,11 +335,57 @@ def main():
     st.markdown("### ⚙️ Parameters")
     col1, col2, col3 = st.columns(3)
     with col1:
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="pp_temp")
+        temperature = st.slider(
+            "Temperature", 0.0, 1.0, 0.7, 0.1, key="pp_temp",
+            help="Controls randomness in token selection. Low values (0.0) produce deterministic outputs; high values (1.0) increase creativity and variation."
+        )
     with col2:
-        top_p = st.slider("Top P", 0.0, 1.0, 0.9, 0.05, key="pp_top_p")
+        if _model_supports_top_p():
+            top_p = st.slider(
+                "Top P", 0.0, 1.0, 0.9, 0.05, key="pp_top_p",
+                help="Nucleus sampling — limits token selection to the smallest set whose cumulative probability exceeds P. Lower values restrict to high-probability tokens only."
+            )
+        else:
+            top_p = None
+            st.info(f"Top P is not supported by **{_get_selected_model_name()}**")
     with col3:
-        max_tokens = st.slider("Max Tokens", 50, 1000, 200, 50, key="pp_max_tokens")
+        max_tokens = st.slider(
+            "Max Tokens", 50, 1000, 200, 50, key="pp_max_tokens",
+            help="Hard cap on the number of output tokens. Generation stops immediately when this limit is reached, even mid-sentence."
+        )
+
+    # Stop Sequences parameter (displayed only for models that support it)
+    if _model_supports_stop_sequences():
+        stop_seq_input = st.text_input(
+            "Stop Sequences (comma-separated)",
+            value="",
+            key="pp_stop_sequences",
+            help="A list of character sequences that cause the model to stop generating. "
+                 "The model halts output when it produces any of these sequences. "
+                 "Useful for controlling output format (e.g., stop at '\\n\\n' or 'END'). Max 4 sequences."
+        )
+        stop_sequences = [s.strip() for s in stop_seq_input.split(",") if s.strip()] if stop_seq_input.strip() else None
+        if stop_sequences and len(stop_sequences) > 4:
+            st.warning("⚠️ Most models support a maximum of 4 stop sequences. Only the first 4 will be used.")
+            stop_sequences = stop_sequences[:4]
+    else:
+        stop_sequences = None
+        st.caption(f"ℹ️ Stop Sequences are not supported by **{_get_selected_model_name()}**")
+
+    # Top K parameter (displayed only for models that support it)
+    if _model_supports_top_k():
+        top_k = st.slider(
+            "Top K", 0, 128, 0, 1, key="pp_top_k",
+            help="Limits token selection to the K most probable tokens before sampling. "
+                 "Only the top K tokens are considered; all others are discarded. "
+                 "Set to 0 to disable (model default). Range: 0–128. "
+                 "Works as a hard cutoff before temperature and topP are applied."
+        )
+        if top_k == 0:
+            top_k = None  # Don't send if disabled
+    else:
+        top_k = None
+        st.caption(f"ℹ️ Top K is not supported by **{_get_selected_model_name()}**")
 
     # Contextual hints
     if temperature < 0.3:
@@ -249,7 +395,7 @@ def main():
     else:
         st.info("🎨 **High temperature (> 0.7):** Creative and varied. Good for brainstorming.")
 
-    if temperature > 0.5 and top_p < 0.5:
+    if top_p is not None and temperature > 0.5 and top_p < 0.5:
         st.warning(
             "⚠️ **Parameter conflict:** High temperature broadens the distribution, but low top_p cuts it back. "
             "These work against each other. Adjust one at a time for predictable control."
@@ -273,12 +419,13 @@ def main():
                 progress = st.progress(0)
                 for i in range(num_runs):
                     with st.spinner(f"Run {i + 1}/{num_runs}..."):
-                        r = call_bedrock(prompt, temperature, top_p, max_tokens)
+                        r = call_bedrock(prompt, temperature, top_p, max_tokens, stop_sequences, top_k)
                         results.append(r)
                     progress.progress((i + 1) / num_runs)
                 st.session_state["pp_exp_results"] = results
                 st.session_state["pp_exp_params"] = {
-                    "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens
+                    "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens,
+                    "stop_sequences": stop_sequences, "top_k": top_k,
                 }
 
                 # Save to history
@@ -342,7 +489,7 @@ def main():
                 compare_results = []
                 with st.spinner("Running 3 calls at different temperatures..."):
                     for t in temps:
-                        r = call_bedrock(prompt, temperature=t, top_p=top_p, max_tokens=max_tokens)
+                        r = call_bedrock(prompt, temperature=t, top_p=top_p, max_tokens=max_tokens, stop_sequences=stop_sequences, top_k=top_k)
                         compare_results.append(r)
                 st.session_state["pp_temp_results"] = compare_results
 
@@ -366,40 +513,43 @@ def main():
                 st.info("💡 Higher temperature typically produces more varied vocabulary and creative phrasing.")
 
     with tab_topp_compare:
-        st.markdown("Runs the same prompt at 3 top_p settings (with temperature fixed) to show nucleus sampling effect.")
-        if st.button("🎯 Run Top-P Compare", type="primary", key="pp_topp_compare"):
-            if not prompt.strip():
-                st.warning("Please enter a prompt.")
-            else:
+        if not _model_supports_top_p():
+            st.warning(f"Top-P comparison is not available for **{_get_selected_model_name()}** because it does not support the topP parameter.")
+        else:
+            st.markdown("Runs the same prompt at 3 top_p settings (with temperature fixed) to show nucleus sampling effect.")
+            if st.button("🎯 Run Top-P Compare", type="primary", key="pp_topp_compare"):
+                if not prompt.strip():
+                    st.warning("Please enter a prompt.")
+                else:
+                    top_ps = [0.1, 0.5, 1.0]
+                    compare_results = []
+                    with st.spinner("Running 3 calls at different top_p values..."):
+                        for tp in top_ps:
+                            r = call_bedrock(prompt, temperature=temperature, top_p=tp, max_tokens=max_tokens, stop_sequences=stop_sequences, top_k=top_k)
+                            compare_results.append(r)
+                    st.session_state["pp_topp_results"] = compare_results
+
+            if "pp_topp_results" in st.session_state:
+                results = st.session_state["pp_topp_results"]
                 top_ps = [0.1, 0.5, 1.0]
-                compare_results = []
-                with st.spinner("Running 3 calls at different top_p values..."):
-                    for tp in top_ps:
-                        r = call_bedrock(prompt, temperature=temperature, top_p=tp, max_tokens=max_tokens)
-                        compare_results.append(r)
-                st.session_state["pp_topp_results"] = compare_results
+                labels = ["🎯 P=0.1 (narrow)", "⚖️ P=0.5 (moderate)", "🌐 P=1.0 (full)"]
 
-        if "pp_topp_results" in st.session_state:
-            results = st.session_state["pp_topp_results"]
-            top_ps = [0.1, 0.5, 1.0]
-            labels = ["🎯 P=0.1 (narrow)", "⚖️ P=0.5 (moderate)", "🌐 P=1.0 (full)"]
+                cols = st.columns(3)
+                for i, (col, label) in enumerate(zip(cols, labels)):
+                    with col:
+                        st.markdown(f"**{label}**")
+                        st.markdown(results[i]["text"])
+                        st.caption(f"{results[i]['output_tokens']} tokens | {results[i]['latency']:.2f}s")
 
-            cols = st.columns(3)
-            for i, (col, label) in enumerate(zip(cols, labels)):
-                with col:
-                    st.markdown(f"**{label}**")
-                    st.markdown(results[i]["text"])
-                    st.caption(f"{results[i]['output_tokens']} tokens | {results[i]['latency']:.2f}s")
-
-            response_texts = [r["text"] for r in results if not r["text"].startswith("Error")]
-            if len(response_texts) >= 2:
-                st.markdown("---")
-                variability = avg_jaccard(response_texts)
-                st.metric("Cross-top_p Variability", f"{variability:.3f}")
-                st.info(
-                    "💡 Top_p controls how many tokens are 'eligible' for selection. "
-                    "Low top_p = only the most probable tokens. High top_p = rare tokens can also be chosen."
-                )
+                response_texts = [r["text"] for r in results if not r["text"].startswith("Error")]
+                if len(response_texts) >= 2:
+                    st.markdown("---")
+                    variability = avg_jaccard(response_texts)
+                    st.metric("Cross-top_p Variability", f"{variability:.3f}")
+                    st.info(
+                        "💡 Top_p controls how many tokens are 'eligible' for selection. "
+                        "Low top_p = only the most probable tokens. High top_p = rare tokens can also be chosen."
+                    )
 
     with tab_history:
         history = st.session_state.get("pp_history", [])
@@ -467,11 +617,18 @@ def main():
         st.markdown("#### Set your parameters:")
         ch_cols = st.columns(3)
         with ch_cols[0]:
-            ch_temp = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="pp_ch_temp")
+            ch_temp = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="pp_ch_temp",
+                                help="Controls randomness. Lower = more deterministic.")
         with ch_cols[1]:
-            ch_top_p = st.slider("Top P", 0.0, 1.0, 0.9, 0.05, key="pp_ch_top_p")
+            if _model_supports_top_p():
+                ch_top_p = st.slider("Top P", 0.0, 1.0, 0.9, 0.05, key="pp_ch_top_p",
+                                     help="Nucleus sampling threshold. Lower = fewer candidate tokens.")
+            else:
+                ch_top_p = None
+                st.info(f"Top P not supported by {_get_selected_model_name()}")
         with ch_cols[2]:
-            ch_max_tokens = st.slider("Max Tokens", 20, 500, 200, 10, key="pp_ch_max_tokens")
+            ch_max_tokens = st.slider("Max Tokens", 20, 500, 200, 10, key="pp_ch_max_tokens",
+                                      help="Maximum number of tokens in the response.")
 
         if st.button("🚀 Run Challenge (3 runs)", key="pp_run_challenge"):
             results = []
